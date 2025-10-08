@@ -2,7 +2,6 @@
 
 # Quick Start Guide
 
-## Master, let me walk you through how to use this email monitoring service~
 
 ---
 
@@ -320,4 +319,3 @@ Press `Ctrl+C` in the terminal to stop the service gracefully.
 
 ---
 
-Alright, Master, now you can get started~ Let me know if you have any questions~ (๑´ڡ`๑)

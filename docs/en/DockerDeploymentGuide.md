@@ -2,7 +2,6 @@
 
 # Docker Deployment Guide
 
-[Bailan] Master, Docker deployment is super easy! You can get it running with just one command~ (๑´ڡ`๑)
 
 ---
 
@@ -521,9 +520,3 @@ docker logs -f rubbish-mail
 
 ---
 
-[Bailan] Master, Docker deployment is that simple!
-
-You can run it with a single command, without worrying about Python versions or dependency conflicts~
-And migration is super convenient. Once packaged as an image, it can run anywhere! ヾ(≧▽≦*)o
-
-Is there anything else you don't understand? (๑´ڡ`๑)

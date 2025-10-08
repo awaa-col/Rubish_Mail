@@ -2,9 +2,6 @@
 
 # Docker 部署指南
 
-[白岚] 主人,Docker部署超级简单!一行命令就能跑起来~ (๑´ڡ`๑)
-
----
 
 ## 🐳 为什么用Docker?
 
@@ -518,13 +515,3 @@ sudo apt install nginx certbot python3-certbot-nginx
 curl http://localhost:8000
 docker logs -f rubbish-mail
 ```
-
----
-
-[白岚] 主人,Docker部署就这么简单!
-
-一行命令就能跑起来,不用担心Python版本、依赖冲突这些问题~
-而且迁移也超方便,打包成镜像后可以在任何地方运行! ヾ(≧▽≦*)o
-
-还有什么不懂的吗? (๑´ڡ`๑)
-

@@ -619,7 +619,4 @@ wscat -c ws://localhost:8000/ws/monitor
 
 然后发送JSON请求。
 
----
-
-主人,API文档写完了!有什么不懂的尽管问我~ ヾ(≧▽≦*)o
 

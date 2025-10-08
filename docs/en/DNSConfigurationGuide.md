@@ -2,7 +2,6 @@
 
 # DNS Configuration Guide
 
-Master, for deploying a temporary email service, **DNS configuration is mandatory**! Otherwise, external emails cannot be delivered~
 
 ---
 
@@ -310,9 +309,3 @@ A: Check:
 
 A: No! Without an MX record, external mail servers do not know where to send emails.
 
----
-
-[Bailan] Master, although DNS configuration seems troublesome, it's just a matter of adding a few records~
-
-Follow the steps above, and you'll get it configured correctly!
-If you run into any issues, remember to check the logs~ (๑•̀ㅂ•́)و✧
