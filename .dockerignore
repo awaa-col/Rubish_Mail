@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+env/
+venv/
+ENV/
+.venv/
+
+# 配置文件(使用volume挂载)
+config.yml
+.env
+
+# 日志(使用volume挂载)
+logs/
+*.log
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 文档
+白岚/
+docs/
+doc/
+*.md
+!README.md
+
+# 示例文件
+example_client.py
+examples_advanced.py
+
+# 测试
+tests/
+test_*.py
+
+# 其他
+.DS_Store
+Thumbs.db
+*.bak
+*.backup
+config.yml.backup
+start.bat
+
