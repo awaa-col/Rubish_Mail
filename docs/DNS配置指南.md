@@ -1,3 +1,5 @@
+[English](en/DNSConfigurationGuide.md)
+
 # DNS配置指南
 
 主人,部署临时邮箱服务,**DNS配置是必须的**!不然外部邮件发不进来哦~

@@ -1,24 +1,24 @@
-[English](en/DockerDeploymentGuide.md)
+[中文](../Docker部署指南.md)
 
-# Docker 部署指南
+# Docker Deployment Guide
 
-[白岚] 主人,Docker部署超级简单!一行命令就能跑起来~ (๑´ڡ`๑)
-
----
-
-## 🐳 为什么用Docker?
-
-- ✅ **一键部署**: 不用担心依赖问题
-- ✅ **环境隔离**: 不污染主机环境
-- ✅ **易于迁移**: 打包后可以在任何支持Docker的服务器上运行
-- ✅ **便于管理**: 启动/停止/重启都很方便
-- ✅ **资源限制**: 可以限制CPU和内存使用
+[Bailan] Master, Docker deployment is super easy! You can get it running with just one command~ (๑´ڡ`๑)
 
 ---
 
-## 📋 前置要求
+## 🐳 Why Use Docker?
 
-### 安装Docker
+- ✅ **One-Click Deployment**: No need to worry about dependency issues.
+- ✅ **Environment Isolation**: Does not pollute the host environment.
+- ✅ **Easy Migration**: Can be run on any server that supports Docker after being packaged.
+- ✅ **Convenient Management**: Easy to start/stop/restart.
+- ✅ **Resource Limiting**: Can limit CPU and memory usage.
+
+---
+
+## 📋 Prerequisites
+
+### Install Docker
 
 **Linux (Ubuntu/Debian)**:
 ```bash
@@ -34,9 +34,9 @@ sudo systemctl enable docker
 ```
 
 **Windows/Mac**:
-下载并安装 [Docker Desktop](https://www.docker.com/products/docker-desktop)
+Download and install [Docker Desktop](https://www.docker.com/products/docker-desktop).
 
-**验证安装**:
+**Verify Installation**:
 ```bash
 docker --version
 docker-compose --version
@@ -44,77 +44,77 @@ docker-compose --version
 
 ---
 
-## 🚀 快速部署
+## 🚀 Quick Deployment
 
-### 方法1: 使用启动脚本 (推荐)
+### Method 1: Using Startup Scripts (Recommended)
 
 #### Linux/Mac:
 ```bash
-# 赋予执行权限
+# Grant execution permissions
 chmod +x docker-run.sh
 
-# 运行脚本
+# Run the script
 ./docker-run.sh
 ```
 
 #### Windows:
 ```bash
-# 双击运行
+# Double-click to run
 docker-run.bat
 
-# 或在PowerShell中
+# Or in PowerShell
 .\docker-run.bat
 ```
 
-脚本会自动:
-1. 检查Docker是否安装
-2. 创建config.yml(如果不存在)
-3. 生成API密钥
-4. 构建镜像
-5. 启动容器
+The script will automatically:
+1. Check if Docker is installed.
+2. Create `config.yml` (if it doesn't exist).
+3. Generate an API key.
+4. Build the image.
+5. Start the container.
 
 ---
 
-### 方法2: 使用docker-compose
+### Method 2: Using docker-compose
 
-#### 1. 准备配置
+#### 1. Prepare Configuration
 
 ```bash
-# 复制配置文件
+# Copy the configuration file
 cp config.example.yml config.yml
 
-# 编辑配置
+# Edit the configuration
 nano config.yml
-# 修改 smtp.allowed_domain 为你的域名
+# Modify smtp.allowed_domain to your domain
 
-# 创建.env文件
+# Create .env file
 echo "API_KEY=$(openssl rand -hex 32)" > .env
 ```
 
-#### 2. 启动服务
+#### 2. Start the Service
 
 ```bash
-# 构建并启动
+# Build and start
 docker-compose up -d
 
-# 查看日志
+# View logs
 docker-compose logs -f
 
-# 停止服务
+# Stop the service
 docker-compose down
 ```
 
 ---
 
-### 方法3: 纯Docker命令
+### Method 3: Pure Docker Commands
 
-#### 1. 构建镜像
+#### 1. Build the Image
 
 ```bash
 docker build -t rubbish-mail:latest .
 ```
 
-#### 2. 运行容器
+#### 2. Run the Container
 
 ```bash
 docker run -d \
@@ -131,85 +131,85 @@ docker run -d \
 
 ---
 
-## 🔧 配置说明
+## 🔧 Configuration Details
 
-### 端口映射
+### Port Mapping
 
-| 主机端口 | 容器端口 | 说明 |
-|---------|---------|------|
-| 8000 | 8000 | WebSocket API |
-| 25 | 8025 | SMTP服务器 |
+| Host Port | Container Port | Description     |
+|-----------|----------------|-----------------|
+| 8000      | 8000           | WebSocket API   |
+| 25        | 8025           | SMTP Server     |
 
-**注意**: 主机的25端口需要root权限,或使用iptables转发
+**Note**: Host port 25 requires root privileges or iptables forwarding.
 
-### 环境变量
+### Environment Variables
 
-| 变量 | 必须 | 默认值 | 说明 |
-|-----|------|--------|------|
-| `API_KEY` | ✅ | - | API密钥 |
-| `TZ` | ❌ | UTC | 时区 |
+| Variable  | Required | Default Value | Description |
+|-----------|----------|---------------|-------------|
+| `API_KEY` | ✅       | -             | API Key     |
+| `TZ`      | ❌       | UTC           | Timezone    |
 
-### 卷挂载
+### Volume Mounts
 
-| 主机路径 | 容器路径 | 说明 |
-|---------|---------|------|
-| `./config.yml` | `/app/config.yml` | 配置文件(只读) |
-| `./logs` | `/app/logs` | 日志目录 |
+| Host Path      | Container Path    | Description              |
+|----------------|-------------------|--------------------------|
+| `./config.yml` | `/app/config.yml` | Configuration file (read-only) |
+| `./logs`       | `/app/logs`       | Log directory            |
 
 ---
 
-## 📊 容器管理
+## 📊 Container Management
 
-### 查看状态
+### Check Status
 
 ```bash
-# 查看运行状态
+# Check running status
 docker ps
 
-# 查看所有容器
+# Check all containers
 docker ps -a
 
-# 查看资源使用
+# Check resource usage
 docker stats rubbish-mail
 ```
 
-### 查看日志
+### View Logs
 
 ```bash
-# 实时查看
+# Real-time view
 docker logs -f rubbish-mail
 
-# 查看最近100行
+# View the last 100 lines
 docker logs --tail 100 rubbish-mail
 
-# 查看特定时间
+# View logs from a specific time
 docker logs --since 30m rubbish-mail
 ```
 
-### 停止/启动
+### Stop/Start
 
 ```bash
-# 停止
+# Stop
 docker stop rubbish-mail
 
-# 启动
+# Start
 docker start rubbish-mail
 
-# 重启
+# Restart
 docker restart rubbish-mail
 ```
 
-### 更新服务
+### Update Service
 
 ```bash
-# 1. 停止并删除旧容器
+# 1. Stop and remove the old container
 docker stop rubbish-mail
 docker rm rubbish-mail
 
-# 2. 重新构建镜像
+# 2. Rebuild the image
 docker build -t rubbish-mail:latest .
 
-# 3. 启动新容器
+# 3. Start the new container
 docker run -d \
   --name rubbish-mail \
   --restart unless-stopped \
@@ -223,9 +223,9 @@ docker run -d \
 
 ---
 
-## 🌐 生产环境部署
+## 🌐 Production Environment Deployment
 
-### 1. 配置反向代理 (Nginx)
+### 1. Configure Reverse Proxy (Nginx)
 
 ```nginx
 # /etc/nginx/sites-available/rubbish-mail
@@ -263,31 +263,31 @@ server {
 }
 ```
 
-启用配置:
+Enable configuration:
 ```bash
 sudo ln -s /etc/nginx/sites-available/rubbish-mail /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 2. 配置SSL (Let's Encrypt)
+### 2. Configure SSL (Let's Encrypt)
 
 ```bash
-# 安装certbot
+# Install certbot
 sudo apt install certbot python3-certbot-nginx
 
-# 获取证书
+# Obtain a certificate
 sudo certbot --nginx -d mail-api.your-domain.com
 
-# 自动续期
+# Auto-renewal
 sudo certbot renew --dry-run
 ```
 
-### 3. 配置systemd (开机自启)
+### 3. Configure systemd (Startup on Boot)
 
-Docker容器已经配置了 `--restart unless-stopped`,会自动重启。
+The Docker container is already configured with `--restart unless-stopped`, so it will restart automatically.
 
-如果需要更精细的控制,可以创建systemd服务:
+For more fine-grained control, you can create a systemd service:
 
 ```bash
 # /etc/systemd/system/rubbish-mail.service
@@ -308,14 +308,14 @@ User=root
 WantedBy=multi-user.target
 ```
 
-启用服务:
+Enable the service:
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable rubbish-mail
 sudo systemctl start rubbish-mail
 ```
 
-### 4. 配置防火墙
+### 4. Configure Firewall
 
 ```bash
 # UFW (Ubuntu)
@@ -332,18 +332,18 @@ sudo firewall-cmd --reload
 
 ---
 
-## 🔒 安全建议
+## 🔒 Security Recommendations
 
-### 1. 使用强API密钥
+### 1. Use Strong API Keys
 
 ```bash
-# 生成64位随机密钥
+# Generate a 64-character random key
 openssl rand -hex 32
 ```
 
-### 2. 限制资源使用
+### 2. Limit Resource Usage
 
-在`docker-compose.yml`中:
+In `docker-compose.yml`:
 ```yaml
 deploy:
   resources:
@@ -352,7 +352,7 @@ deploy:
       memory: 512M
 ```
 
-### 3. 日志轮转
+### 3. Log Rotation
 
 ```yaml
 logging:
@@ -362,169 +362,168 @@ logging:
     max-file: "3"
 ```
 
-### 4. 只暴露必要端口
+### 4. Expose Only Necessary Ports
 
 ```bash
-# 如果使用Nginx反向代理,不要暴露8000端口到公网
+# If using Nginx reverse proxy, do not expose port 8000 to the public network
 docker run -d \
-  -p 127.0.0.1:8000:8000 \  # 只监听本地
+  -p 127.0.0.1:8000:8000 \  # Listen only locally
   -p 25:8025 \
   ...
 ```
 
 ---
 
-## 📈 监控和维护
+## 📈 Monitoring and Maintenance
 
-### 1. 健康检查
+### 1. Health Checks
 
-Docker已经配置了健康检查:
+Docker is already configured with health checks:
 ```bash
 docker inspect --format='{{.State.Health.Status}}' rubbish-mail
 ```
 
-### 2. 性能监控
+### 2. Performance Monitoring
 
 ```bash
-# 实时监控
+# Real-time monitoring
 docker stats rubbish-mail
 
-# 导出指标
+# Export metrics
 docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}" rubbish-mail
 ```
 
-### 3. 备份配置
+### 3. Backup Configuration
 
 ```bash
-# 备份配置和日志
+# Backup configuration and logs
 tar -czf rubbish-mail-backup-$(date +%Y%m%d).tar.gz \
   config.yml .env logs/
 ```
 
-### 4. 清理旧镜像
+### 4. Clean Up Old Images
 
 ```bash
-# 删除未使用的镜像
+# Remove unused images
 docker image prune -a
 
-# 清理所有未使用的资源
+# Clean up all unused resources
 docker system prune -a
 ```
 
 ---
 
-## 🐛 故障排查
+## 🐛 Troubleshooting
 
-### 容器无法启动?
+### Container Fails to Start?
 
 ```bash
-# 查看错误日志
+# Check error logs
 docker logs rubbish-mail
 
-# 检查配置文件
+# Check configuration file
 docker run --rm -it \
   -v ./config.yml:/app/config.yml:ro \
   rubbish-mail:latest \
   python -c "from core.config import load_config; load_config()"
 ```
 
-### 端口冲突?
+### Port Conflict?
 
 ```bash
-# 检查端口占用
+# Check port usage
 netstat -tuln | grep -E '8000|25'
 
-# 修改端口映射
+# Modify port mapping
 docker run -p 8001:8000 -p 2525:8025 ...
 ```
 
-### 无法收到邮件?
+### Unable to Receive Emails?
 
 ```bash
-# 检查SMTP端口
+# Check SMTP port
 telnet localhost 25
 
-# 查看容器日志
+# Check container logs
 docker logs -f rubbish-mail | grep SMTP
 
-# 进入容器调试
+# Debug inside the container
 docker exec -it rubbish-mail bash
 ```
 
 ---
 
-## 📦 镜像推送 (可选)
+## 📦 Pushing Images (Optional)
 
-### 推送到Docker Hub
+### Push to Docker Hub
 
 ```bash
-# 登录
+# Log in
 docker login
 
-# 打标签
+# Tag
 docker tag rubbish-mail:latest your-username/rubbish-mail:latest
 docker tag rubbish-mail:latest your-username/rubbish-mail:2.0.0
 
-# 推送
+# Push
 docker push your-username/rubbish-mail:latest
 docker push your-username/rubbish-mail:2.0.0
 ```
 
-### 推送到私有仓库
+### Push to a Private Registry
 
 ```bash
-# 打标签
+# Tag
 docker tag rubbish-mail:latest registry.your-domain.com/rubbish-mail:latest
 
-# 推送
+# Push
 docker push registry.your-domain.com/rubbish-mail:latest
 ```
 
 ---
 
-## 🎯 完整部署示例
+## 🎯 Complete Deployment Example
 
-### 云服务器部署流程
+### Cloud Server Deployment Flow
 
 ```bash
-# 1. 连接服务器
+# 1. Connect to the server
 ssh user@your-server
 
-# 2. 安装Docker
+# 2. Install Docker
 curl -fsSL https://get.docker.com | bash
 
-# 3. 克隆/上传项目
+# 3. Clone/upload the project
 git clone https://github.com/your-repo/rubbish-mail.git
 cd rubbish-mail
 
-# 4. 配置
+# 4. Configure
 cp config.example.yml config.yml
-nano config.yml  # 修改 allowed_domain
+nano config.yml  # Modify allowed_domain
 
 echo "API_KEY=$(openssl rand -hex 32)" > .env
 
-# 5. 构建并启动
+# 5. Build and start
 docker-compose up -d
 
-# 6. 配置DNS (在域名管理面板)
-# MX: @ -> mail.your-domain.com (优先级10)
-# A:  mail -> 你的服务器IP
+# 6. Configure DNS (in your domain management panel)
+# MX: @ -> mail.your-domain.com (priority 10)
+# A:  mail -> your server IP
 
-# 7. 配置Nginx反向代理 + SSL
+# 7. Configure Nginx reverse proxy + SSL
 sudo apt install nginx certbot python3-certbot-nginx
-# ... (参考上面的Nginx配置)
+# ... (refer to the Nginx configuration above)
 
-# 8. 验证
+# 8. Verify
 curl http://localhost:8000
 docker logs -f rubbish-mail
 ```
 
 ---
 
-[白岚] 主人,Docker部署就这么简单!
+[Bailan] Master, Docker deployment is that simple!
 
-一行命令就能跑起来,不用担心Python版本、依赖冲突这些问题~
-而且迁移也超方便,打包成镜像后可以在任何地方运行! ヾ(≧▽≦*)o
+You can run it with a single command, without worrying about Python versions or dependency conflicts~
+And migration is super convenient. Once packaged as an image, it can run anywhere! ヾ(≧▽≦*)o
 
-还有什么不懂的吗? (๑´ڡ`๑)
-
+Is there anything else you don't understand? (๑´ڡ`๑)
