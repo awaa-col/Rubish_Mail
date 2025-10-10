@@ -35,6 +35,7 @@ class SMTPConfig(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8025
     allowed_domain: str
+    max_message_size: int = 10  # MB
 
 
 class MonitorConfig(BaseSettings):
@@ -43,10 +44,24 @@ class MonitorConfig(BaseSettings):
     timeout: int = 300  # 秒
 
 
+class BlacklistConfig(BaseSettings):
+    """黑名单配置"""
+    storage: str = "data/blacklist.json"
+    auto_block: bool = True
+
+
+class LogRotationConfig(BaseSettings):
+    """日志轮转配置"""
+    keep_days: int = 7
+    max_size_mb: int = 100
+    check_interval: int = 3600
+
+
 class LoggingConfig(BaseSettings):
     """日志配置"""
     level: str = "INFO"
     file: str = "logs/rubbish_mail.log"
+    rotation: LogRotationConfig = LogRotationConfig()
 
 
 class Settings(BaseSettings):
@@ -59,6 +74,7 @@ class Settings(BaseSettings):
     server: ServerConfig
     smtp: SMTPConfig
     monitor: MonitorConfig
+    blacklist: BlacklistConfig
     logging: LoggingConfig
     
     @field_validator("api_keys", mode="before")
@@ -125,11 +141,18 @@ def load_config(config_path: str = "config.yml") -> Settings:
     
     # 创建配置对象
     # 注意: api_key 和 api_keys 会自动从环境变量读取(.env文件)
+    
+    # 处理logging配置中的rotation子配置
+    logging_config = config_data.get("logging", {})
+    rotation_data = logging_config.get("rotation", {})
+    logging_config["rotation"] = LogRotationConfig(**rotation_data)
+    
     return Settings(
         server=ServerConfig(**config_data.get("server", {})),
         smtp=SMTPConfig(**config_data.get("smtp", {})),
         monitor=MonitorConfig(**config_data.get("monitor", {})),
-        logging=LoggingConfig(**config_data.get("logging", {}))
+        blacklist=BlacklistConfig(**config_data.get("blacklist", {})),
+        logging=LoggingConfig(**logging_config)
     )
 
 

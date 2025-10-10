@@ -107,15 +107,28 @@ docker-compose down
 
 ### Method 3: Pure Docker Commands
 
-#### 1. Build the Image
+> ⚠️ **Important**: Before using this method, ensure you have **manually created** the `config.yml` file! Otherwise, Docker will automatically create an **empty directory** to mount into the container, causing the application to fail because it cannot read the configuration file.
+
+#### 1. Prepare Configuration (Required!)
+
+```bash
+# Copy the configuration file
+cp config.example.yml config.yml
+
+# Edit the configuration, at least modify smtp.allowed_domain
+nano config.yml
+```
+
+#### 2. Build the Image
 
 ```bash
 docker build -t rubbish-mail:latest .
 ```
 
-#### 2. Run the Container
+#### 3. Run the Container
 
 ```bash
+# Remember to replace "your-api-key" with your own key!
 docker run -d \
   --name rubbish-mail \
   --restart unless-stopped \
@@ -208,7 +221,7 @@ docker rm rubbish-mail
 # 2. Rebuild the image
 docker build -t rubbish-mail:latest .
 
-# 3. Start the new container
+# 3. Start the new container (ensure config.yml exists!)
 docker run -d \
   --name rubbish-mail \
   --restart unless-stopped \
@@ -496,13 +509,14 @@ curl -fsSL https://get.docker.com | bash
 git clone https://github.com/your-repo/rubbish-mail.git
 cd rubbish-mail
 
-# 4. Configure
+# 4. Configure (ensure you create the file before starting the container)
 cp config.example.yml config.yml
 nano config.yml  # Modify allowed_domain
 
 echo "API_KEY=$(openssl rand -hex 32)" > .env
 
 # 5. Build and start
+# (docker-compose is recommended as it handles dependencies and networking better)
 docker-compose up -d
 
 # 6. Configure DNS (in your domain management panel)

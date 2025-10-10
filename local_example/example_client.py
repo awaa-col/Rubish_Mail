@@ -13,9 +13,39 @@
 import asyncio
 import json
 import re
-from typing import Optional
+from typing import Optional, List
+from html.parser import HTMLParser
 
 import websockets
+
+
+class LinkExtractor(HTMLParser):
+    """从HTML中提取链接"""
+    
+    def __init__(self):
+        super().__init__()
+        self.links: List[tuple] = []  # [(url, text), ...]
+        self.current_link = None
+        self.current_text = []
+    
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            for attr, value in attrs:
+                if attr == 'href':
+                    self.current_link = value
+                    self.current_text = []
+                    break
+    
+    def handle_endtag(self, tag):
+        if tag == 'a' and self.current_link:
+            text = ''.join(self.current_text).strip()
+            self.links.append((self.current_link, text or self.current_link))
+            self.current_link = None
+            self.current_text = []
+    
+    def handle_data(self, data):
+        if self.current_link is not None:
+            self.current_text.append(data)
 
 
 class MailMonitorClient:
@@ -127,6 +157,18 @@ class MailMonitorClient:
                 print(msg_data.get('body')[:500])  # 只显示前500字符
                 if len(msg_data.get('body', '')) > 500:
                     print("... (内容过长,已截断)")
+                
+                # 提取并显示HTML中的链接
+                html_body = msg_data.get('html_body')
+                if html_body:
+                    links = self._extract_links_from_html(html_body)
+                    if links:
+                        print("-" * 60)
+                        print("🔗 邮件中的链接:")
+                        for i, (url, text) in enumerate(links, 1):
+                            print(f"  [{i}] {text}")
+                            print(f"      {url}")
+                
                 print("=" * 60)
                 print()
                 
@@ -154,6 +196,24 @@ class MailMonitorClient:
             print(f"❌ 处理消息时出错: {e}")
         
         return False  # 默认不断开
+    
+    def _extract_links_from_html(self, html_content: str) -> List[tuple]:
+        """
+        从HTML中提取所有链接
+        
+        输入:
+            html_content: HTML内容字符串
+            
+        输出:
+            [(url, text), ...] 链接列表
+        """
+        try:
+            extractor = LinkExtractor()
+            extractor.feed(html_content)
+            return extractor.links
+        except Exception as e:
+            print(f"⚠ 提取链接失败: {e}")
+            return []
     
     def _extract_verification_code(self, email_data: dict):
         """

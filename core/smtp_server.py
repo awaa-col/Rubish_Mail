@@ -21,6 +21,7 @@ from aiosmtpd.smtp import SMTP, Envelope, Session
 
 from core.mail_parser import MailParser
 from core.connection_manager import get_connection_manager
+from core.blacklist import get_blacklist
 from utils.matcher import EmailMatcher
 from schemas.request import EmailContent
 
@@ -31,15 +32,18 @@ logger = logging.getLogger(__name__)
 class RubbishMailHandler:
     """SMTP邮件处理器"""
     
-    def __init__(self, allowed_domain: str):
+    def __init__(self, allowed_domain: str, max_message_size: int = 10 * 1024 * 1024):
         """
         初始化处理器
         
         输入:
             allowed_domain: 允许的邮箱域名(只接收该域名的邮件)
+            max_message_size: 最大邮件大小(字节),默认10MB
         """
         self.allowed_domain = allowed_domain.lower()
+        self.max_message_size = max_message_size
         self.connection_manager = get_connection_manager()
+        self.blacklist = get_blacklist()
     
     async def handle_DATA(self, server: SMTP, session: Session, envelope: Envelope):
         """
@@ -52,13 +56,41 @@ class RubbishMailHandler:
             
         输出:
             "250 OK": 接受邮件
-            "550 Error": 拒绝邮件
+            "552 Error": 邮件过大
+            "554 Error": IP/域名被拉黑
         """
         try:
+            # 获取客户端IP
+            client_ip = session.peer[0] if session.peer else "unknown"
+            
+            # 1. 检查IP黑名单
+            if await self.blacklist.is_ip_blocked(client_ip):
+                logger.warning(f"🚫 拒绝黑名单IP: {client_ip}")
+                return "554 IP blocked"
+            
+            # 2. 检查邮件大小
+            message_size = len(envelope.content)
+            if message_size > self.max_message_size:
+                logger.warning(
+                    f"🚫 拒绝超大邮件: {message_size / 1024 / 1024:.2f}MB "
+                    f"from {envelope.mail_from} ({client_ip})"
+                )
+                # 自动拉黑发送超大邮件的IP
+                await self.blacklist.add_ip(
+                    client_ip, 
+                    f"发送超大邮件 ({message_size / 1024 / 1024:.2f}MB)"
+                )
+                return f"552 Message too large ({message_size / 1024 / 1024:.2f}MB > {self.max_message_size / 1024 / 1024}MB)"
+            
+            # 3. 检查发件人域名黑名单
+            if await self.blacklist.is_sender_blocked(envelope.mail_from):
+                logger.warning(f"🚫 拒绝黑名单域名: {envelope.mail_from} ({client_ip})")
+                return "554 Sender domain blocked"
+            
             # 获取收件人列表
             recipients = envelope.rcpt_tos
             
-            logger.info(f"收到邮件: 发件人={envelope.mail_from}, 收件人={recipients}")
+            logger.info(f"收到邮件: 发件人={envelope.mail_from}, 收件人={recipients}, IP={client_ip}")
             
             # 解析邮件内容
             email_data = MailParser.parse_from_bytes(envelope.content)
@@ -70,8 +102,14 @@ class RubbishMailHandler:
             logger.debug(f"邮件主题: {email_data.get('subject')}")
             
             # 处理每个收件人
+            has_valid_recipient = False
             for recipient in recipients:
-                await self._process_recipient(recipient, email_data)
+                if await self._process_recipient(recipient, email_data, client_ip, envelope.mail_from):
+                    has_valid_recipient = True
+            
+            # 如果没有任何有效收件人,可能是垃圾邮件,自动拉黑
+            if not has_valid_recipient:
+                await self.blacklist.auto_block_stranger(client_ip, envelope.mail_from)
             
             return "250 OK"
             
@@ -79,13 +117,24 @@ class RubbishMailHandler:
             logger.error(f"处理邮件时出错: {e}", exc_info=True)
             return "250 OK"  # 即使出错也返回OK,避免发件方重试
     
-    async def _process_recipient(self, recipient: str, email_data: dict):
+    async def _process_recipient(
+        self, 
+        recipient: str, 
+        email_data: dict, 
+        client_ip: str, 
+        sender: str
+    ) -> bool:
         """
         处理单个收件人
         
         输入:
             recipient: 收件人邮箱地址
             email_data: 解析后的邮件数据
+            client_ip: 客户端IP
+            sender: 发件人邮箱
+            
+        输出:
+            True: 成功处理(有监控的连接), False: 无监控或域名不匹配
         """
         try:
             # 提取纯邮箱地址
@@ -96,12 +145,12 @@ class RubbishMailHandler:
             # 检查域名
             if "@" not in recipient_email:
                 logger.warning(f"无效的收件人地址: {recipient_email}")
-                return
+                return False
             
             domain = recipient_email.split("@")[1]
             if domain != self.allowed_domain:
                 logger.info(f"域名不匹配,丢弃邮件: {recipient_email} (允许: {self.allowed_domain})")
-                return
+                return False
             
             # 查找监听该邮箱的连接
             manager = get_connection_manager()
@@ -111,15 +160,22 @@ class RubbishMailHandler:
             
             if not connection_ids:
                 logger.info(f"没有连接监控邮箱 {recipient_email},丢弃邮件")
-                return
+                return False
             
             logger.info(f"找到 {len(connection_ids)} 个连接监控 {recipient_email}")
             
+            # 有监控连接,说明这是合法收件人
             # 对每个连接进行规则匹配
+            matched_any = False
             for conn_id in connection_ids:
                 conn = manager.get_connection(conn_id)
                 if not conn:
                     continue
+                
+                # 学习发件人域名到白名单(从用户规则中提取)
+                if '@' in sender:
+                    sender_domain = sender.split('@')[1].lower()
+                    await self.blacklist.learn_whitelist_domain(sender_domain)
                 
                 # 匹配规则
                 matched, match_description = EmailMatcher.match_any(
@@ -128,6 +184,7 @@ class RubbishMailHandler:
                 )
                 
                 if matched:
+                    matched_any = True
                     logger.info(f"规则匹配成功 [{conn_id}]: {match_description}")
                     
                     # 构造EmailContent对象
@@ -145,9 +202,12 @@ class RubbishMailHandler:
                     await conn.send_email(email_content)
                 else:
                     logger.debug(f"规则不匹配 [{conn_id}],不推送")
+            
+            return True  # 有监控连接,返回True
         
         except Exception as e:
             logger.error(f"处理收件人 {recipient} 时出错: {e}", exc_info=True)
+            return False
 
 
 class SMTPServer:
@@ -157,7 +217,8 @@ class SMTPServer:
         self,
         host: str = "0.0.0.0",
         port: int = 8025,
-        allowed_domain: str = "example.com"
+        allowed_domain: str = "example.com",
+        max_message_size: int = 10 * 1024 * 1024
     ):
         """
         初始化SMTP服务器
@@ -166,13 +227,15 @@ class SMTPServer:
             host: 监听地址
             port: 监听端口(建议非特权端口8025,生产环境用iptables转发25->8025)
             allowed_domain: 允许的邮箱域名
+            max_message_size: 最大邮件大小(字节),默认10MB
         """
         self.host = host
         self.port = port
         self.allowed_domain = allowed_domain
+        self.max_message_size = max_message_size
         
         # 创建处理器
-        self.handler = RubbishMailHandler(allowed_domain)
+        self.handler = RubbishMailHandler(allowed_domain, max_message_size)
         
         # 创建控制器
         self.controller = Controller(

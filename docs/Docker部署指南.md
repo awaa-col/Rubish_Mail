@@ -105,15 +105,28 @@ docker-compose down
 
 ### 方法3: 纯Docker命令
 
-#### 1. 构建镜像
+> ⚠️ **重要提示**: 使用此方法前,请确保你已**手动创建**好 `config.yml` 文件! 否则Docker会自动创建一个**空目录**挂载到容器,导致程序因无法读取配置文件而启动失败!
+
+#### 1. 准备配置 (必须!)
+
+```bash
+# 复制配置文件
+cp config.example.yml config.yml
+
+# 编辑配置,至少要修改 smtp.allowed_domain
+nano config.yml
+```
+
+#### 2. 构建镜像
 
 ```bash
 docker build -t rubbish-mail:latest .
 ```
 
-#### 2. 运行容器
+#### 3. 运行容器
 
 ```bash
+# 记得把 "your-api-key" 换成你自己的密钥!
 docker run -d \
   --name rubbish-mail \
   --restart unless-stopped \
@@ -206,7 +219,7 @@ docker rm rubbish-mail
 # 2. 重新构建镜像
 docker build -t rubbish-mail:latest .
 
-# 3. 启动新容器
+# 3. 启动新容器 (确保 config.yml 文件已存在!)
 docker run -d \
   --name rubbish-mail \
   --restart unless-stopped \
@@ -494,13 +507,14 @@ curl -fsSL https://get.docker.com | bash
 git clone https://github.com/your-repo/rubbish-mail.git
 cd rubbish-mail
 
-# 4. 配置
+# 4. 配置 (确保先创建文件再启动容器)
 cp config.example.yml config.yml
 nano config.yml  # 修改 allowed_domain
 
 echo "API_KEY=$(openssl rand -hex 32)" > .env
 
 # 5. 构建并启动
+# (建议使用 docker-compose, 它能更好地处理依赖和网络)
 docker-compose up -d
 
 # 6. 配置DNS (在域名管理面板)

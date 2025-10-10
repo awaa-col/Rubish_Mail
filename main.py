@@ -25,14 +25,17 @@ import logging
 from datetime import datetime
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import uvicorn
 
 from core.config import get_settings
 from core.auth import init_auth, get_auth
 from core.smtp_server import SMTPServer
 from core.connection_manager import get_connection_manager
+from core.blacklist import get_blacklist
+from utils.log_rotation import get_log_rotation
 from schemas.request import (
     MonitorRequest,
     MonitorStartMessage,
@@ -80,6 +83,13 @@ async def lifespan(app: FastAPI):
     init_auth(settings.get_valid_api_keys())
     logger.info("[OK] API认证已初始化")
     
+    # 初始化黑名单
+    from core.blacklist import Blacklist
+    global _blacklist
+    _blacklist = Blacklist(storage_path=settings.blacklist.storage)
+    logger.info(f"[OK] 黑名单已加载: {settings.blacklist.storage}")
+    logger.info(f"[OK] 自动拉黑: {'开启' if settings.blacklist.auto_block else '关闭'}")
+    
     # 启动SMTP服务器
     # Windows上使用localhost代替0.0.0.0
     smtp_host = settings.smtp.host
@@ -90,16 +100,28 @@ async def lifespan(app: FastAPI):
     smtp_server = SMTPServer(
         host=smtp_host,
         port=settings.smtp.port,
-        allowed_domain=settings.smtp.allowed_domain
+        allowed_domain=settings.smtp.allowed_domain,
+        max_message_size=settings.smtp.max_message_size * 1024 * 1024  # MB转字节
     )
     smtp_server.start()
     logger.info(f"[OK] SMTP服务器: {smtp_host}:{settings.smtp.port}")
     logger.info(f"[OK] 接收域名: {settings.smtp.allowed_domain}")
+    logger.info(f"[OK] 邮件大小限制: {settings.smtp.max_message_size}MB")
     
     # WebSocket配置
     logger.info(f"[OK] WebSocket API: {settings.server.host}:{settings.server.port}")
     logger.info(f"[OK] 最大连接数: {settings.monitor.max_connections}")
     logger.info(f"[OK] 连接超时: {settings.monitor.timeout}秒")
+    
+    # 启动日志轮转
+    from utils.log_rotation import LogRotation
+    log_rotation = LogRotation(
+        log_dir="logs",
+        keep_days=settings.logging.rotation.keep_days,
+        max_size_mb=settings.logging.rotation.max_size_mb,
+        check_interval=settings.logging.rotation.check_interval
+    )
+    log_rotation.start()
     
     logger.info("="*60)
     logger.info("服务已就绪,等待连接...")
@@ -110,6 +132,9 @@ async def lifespan(app: FastAPI):
     # 关闭时
     logger.info("="*60)
     logger.info("关闭服务...")
+    
+    # 停止日志轮转
+    log_rotation.stop()
     
     # 停止SMTP服务器
     if smtp_server:
@@ -125,6 +150,17 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
+# API认证
+security = HTTPBearer()
+
+
+async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """验证API Key"""
+    auth = get_auth()
+    if not auth.verify(credentials.credentials):
+        raise HTTPException(status_code=401, detail="无效的API Key")
+    return credentials.credentials
 
 
 @app.get("/")
@@ -293,6 +329,132 @@ async def websocket_endpoint(websocket: WebSocket):
         if connection_id:
             await manager.remove_connection(connection_id)
             logger.info(f"清理连接: {connection_id}")
+
+
+@app.get("/api/blacklist", dependencies=[Depends(verify_api_key)])
+async def get_blacklist_info():
+    """
+    获取黑名单统计信息
+    
+    需要认证: Bearer Token (API Key)
+    """
+    blacklist = get_blacklist()
+    return JSONResponse(blacklist.get_stats())
+
+
+@app.get("/api/blacklist/detail", dependencies=[Depends(verify_api_key)])
+async def get_blacklist_detail():
+    """
+    获取详细黑名单列表
+    
+    需要认证: Bearer Token (API Key)
+    """
+    blacklist = get_blacklist()
+    return JSONResponse(blacklist.get_detailed_list())
+
+
+@app.post("/api/blacklist/ip/{ip}", dependencies=[Depends(verify_api_key)])
+async def add_ip_to_blacklist(ip: str, reason: str = "手动添加"):
+    """
+    添加IP到黑名单
+    
+    需要认证: Bearer Token (API Key)
+    
+    参数:
+        ip: IP地址
+        reason: 拉黑原因(可选)
+    """
+    blacklist = get_blacklist()
+    success = await blacklist.add_ip(ip, reason)
+    
+    if success:
+        return JSONResponse({
+            "success": True,
+            "message": f"已添加IP到黑名单: {ip}",
+            "ip": ip,
+            "reason": reason
+        })
+    else:
+        return JSONResponse({
+            "success": False,
+            "message": f"IP已在黑名单中: {ip}",
+            "ip": ip
+        })
+
+
+@app.delete("/api/blacklist/ip/{ip}", dependencies=[Depends(verify_api_key)])
+async def remove_ip_from_blacklist(ip: str):
+    """
+    从黑名单移除IP
+    
+    需要认证: Bearer Token (API Key)
+    
+    参数:
+        ip: IP地址
+    """
+    blacklist = get_blacklist()
+    success = await blacklist.remove_ip(ip)
+    
+    if success:
+        return JSONResponse({
+            "success": True,
+            "message": f"已从黑名单移除IP: {ip}",
+            "ip": ip
+        })
+    else:
+        raise HTTPException(status_code=404, detail=f"IP不在黑名单中: {ip}")
+
+
+@app.post("/api/blacklist/domain/{domain}", dependencies=[Depends(verify_api_key)])
+async def add_domain_to_blacklist(domain: str, reason: str = "手动添加"):
+    """
+    添加域名到黑名单
+    
+    需要认证: Bearer Token (API Key)
+    
+    参数:
+        domain: 域名
+        reason: 拉黑原因(可选)
+    """
+    blacklist = get_blacklist()
+    success = await blacklist.add_domain(domain, reason)
+    
+    if success:
+        return JSONResponse({
+            "success": True,
+            "message": f"已添加域名到黑名单: {domain}",
+            "domain": domain,
+            "reason": reason
+        })
+    else:
+        return JSONResponse({
+            "success": False,
+            "message": f"域名已在黑名单中: {domain}",
+            "domain": domain
+        })
+
+
+@app.delete("/api/blacklist/domain/{domain}", dependencies=[Depends(verify_api_key)])
+async def remove_domain_from_blacklist(domain: str):
+    """
+    从黑名单移除域名
+    
+    需要认证: Bearer Token (API Key)
+    
+    参数:
+        domain: 域名
+    """
+    blacklist = get_blacklist()
+    success = await blacklist.remove_domain(domain)
+    
+    if success:
+        return JSONResponse({
+            "success": True,
+            "message": f"已从黑名单移除域名: {domain}",
+            "domain": domain
+        })
+    else:
+        raise HTTPException(status_code=404, detail=f"域名不在黑名单中: {domain}")
 
 
 if __name__ == "__main__":
