@@ -12,6 +12,9 @@ smtp:
   # 邮箱域名(只接收这个域名的邮件)
   allowed_domain: "example.com"  # 改成你的域名,如 your-domain.com
   
+  # 邮件大小限制(MB)
+  max_message_size: 10  # 单封邮件最大10MB,超过自动拉黑发送者
+  
   # 注意: 生产环境需要配置DNS MX记录指向这台服务器
 
 # 监控配置
@@ -19,8 +22,19 @@ monitor:
   max_connections: 10  # 最大同时监控连接数
   timeout: 300  # WebSocket超时时间(秒),超时后自动断开连接
 
+# 黑名单配置
+blacklist:
+  storage: "data/blacklist.json"  # 黑名单存储文件
+  auto_block: true  # 自动拉黑陌生域名发送者
+
 # 日志配置
 logging:
   level: "INFO"  # DEBUG, INFO, WARNING, ERROR
   file: "logs/rubbish_mail.log"
+  
+  # 日志轮转配置
+  rotation:
+    keep_days: 7  # 保留最近7天的日志
+    max_size_mb: 100  # 单个日志文件最大100MB
+    check_interval: 3600  # 检查间隔(秒),默认1小时
 
